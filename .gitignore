@@ -1,0 +1,18 @@
+# Local environment values and personal financial data
+.env
+.env.*
+!.env.example
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+coverage/
+
+# Logs and local tooling
+*.log
+.DS_Store
+.vscode/
+.idea/
