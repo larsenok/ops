@@ -21,7 +21,6 @@ type MonthDay = {
 }
 
 type Copy = {
-  appLabel: string
   languageAction: string
   monthlyIncome: string
   yearlySalary: string
@@ -30,9 +29,7 @@ type Copy = {
   burnRate: string
   subscriptions: string
   incomeStreams: string
-  todos: string
   debt: string
-  notes: string
   calendar: string
   monthOverview: string
   optimisticFuture: string
@@ -52,7 +49,6 @@ type Copy = {
 
 const copy: Record<Lang, Copy> = {
   no: {
-    appLabel: 'Personlig drift',
     languageAction: 'English',
     monthlyIncome: 'Månedlig inntekt',
     yearlySalary: 'Årslønn',
@@ -61,9 +57,7 @@ const copy: Record<Lang, Copy> = {
     burnRate: 'Forbruk',
     subscriptions: 'Abonnementer',
     incomeStreams: 'Inntektsstrømmer',
-    todos: 'Gjøremål',
     debt: 'Gjeld',
-    notes: 'Innboks',
     calendar: 'Kalender',
     monthOverview: 'Månedsoversikt',
     optimisticFuture: 'Optimistisk fremtid',
@@ -81,7 +75,6 @@ const copy: Record<Lang, Copy> = {
     days: ['Man', 'Tir', 'Ons', 'Tor', 'Fre', 'Lør', 'Søn'],
   },
   en: {
-    appLabel: 'Personal ops',
     languageAction: 'Norsk',
     monthlyIncome: 'Monthly income',
     yearlySalary: 'Yearly salary',
@@ -90,9 +83,7 @@ const copy: Record<Lang, Copy> = {
     burnRate: 'Burn rate',
     subscriptions: 'Subscriptions',
     incomeStreams: 'Income streams',
-    todos: 'To-dos',
     debt: 'Debt',
-    notes: 'Inbox',
     calendar: 'Calendar',
     monthOverview: 'Month overview',
     optimisticFuture: 'Optimistic future',
@@ -157,15 +148,6 @@ const percentFormatter = new Intl.NumberFormat('nb-NO', {
   maximumFractionDigits: 1,
 })
 
-const initialTodos: TextLine[] = [
-  { id: 1, text: 'Sorter kvitteringer', status: 'i dag' },
-  { id: 2, text: 'Sjekk neste regning', status: 'snart' },
-]
-
-const initialNotes: TextLine[] = [
-  { id: 1, text: 'Forsikring: sammenlign pris før fornyelse' },
-  { id: 2, text: 'Matbudsjett: sett ukesramme' },
-]
 
 const initialCalendar: TextLine[] = [
   { id: 1, text: 'Tirsdag: løp 30 min' },
@@ -191,14 +173,13 @@ const getCurrentMonthDays = (): MonthDay[] => {
 
 function App() {
   const [lang, setLang] = useState<Lang>('no')
-  const [subscriptions, setSubscriptions] = useState<MoneyLine[]>(() =>
-    parseMoneyLines(import.meta.env.VITE_SUBSCRIPTIONS),
+  const subscriptions = useMemo(
+    () => parseMoneyLines(import.meta.env.VITE_SUBSCRIPTIONS),
+    [],
   )
   const [debts, setDebts] = useState<MoneyLine[]>(() =>
     parseMoneyLines(import.meta.env.VITE_DEBTS),
   )
-  const [todos, setTodos] = useState(initialTodos)
-  const [notes, setNotes] = useState(initialNotes)
   const [calendar, setCalendar] = useState(initialCalendar)
   const [selectedDay, setSelectedDay] = useState(() => new Date().getDate())
   const [drafts, setDrafts] = useState<Record<string, string>>({})
@@ -220,12 +201,7 @@ function App() {
     ...extraIncomeStreams,
   ]
   const monthlyIncome = incomeStreams.reduce((sum, line) => sum + line.amount, 0)
-  const fixedCosts = parseMoney(import.meta.env.VITE_MONTHLY_FIXED_COSTS)
-  const subscriptionBurn = subscriptions.reduce(
-    (sum, line) => sum + line.amount,
-    0,
-  )
-  const burnRate = fixedCosts + subscriptionBurn
+  const burnRate = subscriptions.reduce((sum, line) => sum + line.amount, 0)
   const net = monthlyIncome - burnRate
   const totalDebt = debts.reduce((sum, line) => sum + line.amount, 0)
   const future = Array.from({ length: 6 }, (_, index) => {
@@ -318,6 +294,13 @@ function App() {
     </form>
   )
 
+  const renderSummaryItem = (label: string, value: string, accent = false) => (
+    <span className={`summary-item${accent ? ' accent' : ''}`}>
+      <small>{label}</small>
+      <strong>{value}</strong>
+    </span>
+  )
+
   const renderTextComposer = (
     key: string,
     setter: Dispatch<SetStateAction<TextLine[]>>,
@@ -348,7 +331,6 @@ function App() {
         <div>
           <span className="app-icon" aria-hidden="true" />
           <strong>OPS.EXE</strong>
-          <span>{t.appLabel}</span>
         </div>
         <button type="button" onClick={() => setLang(lang === 'no' ? 'en' : 'no')}>
           {t.languageAction}
@@ -356,11 +338,11 @@ function App() {
       </header>
 
       <section className="summary-strip window-panel" aria-label="summary">
-        <span>{t.yearlySalary}: {currencyFormatter.format(yearlySalary)}</span>
-        <span>{t.expectedTax}: {percentFormatter.format(expectedTax)}</span>
-        <span>{t.monthlyIncome}: {currencyFormatter.format(monthlyIncome)}</span>
-        <span>{t.burnRate}: {currencyFormatter.format(burnRate)}</span>
-        <strong>{t.disposable}: {currencyFormatter.format(net)}</strong>
+        {renderSummaryItem(t.yearlySalary, currencyFormatter.format(yearlySalary))}
+        {renderSummaryItem(t.expectedTax, percentFormatter.format(expectedTax))}
+        {renderSummaryItem(t.monthlyIncome, currencyFormatter.format(monthlyIncome))}
+        {renderSummaryItem(t.burnRate, currencyFormatter.format(burnRate))}
+        {renderSummaryItem(t.disposable, currencyFormatter.format(net), true)}
       </section>
 
       <section className="dashboard-grid" aria-label="operations categories">
@@ -376,23 +358,9 @@ function App() {
         <article className="window-panel category danger">
           <h2>{t.burnRate}</h2>
           <div className="big-number">{currencyFormatter.format(burnRate)}</div>
-          <p>{subscriptions.length} {t.subscriptions.toLowerCase()} + web/.env</p>
+          <p>{subscriptions.length} {t.subscriptions.toLowerCase()}</p>
         </article>
 
-        <article className="window-panel category future-card">
-          <h2>{t.optimisticFuture}</h2>
-          <div className="future-list">
-            {future.map((point) => (
-              <div className="future-row" key={point.month}>
-                <span>{point.month}. {t.month}</span>
-                <div className="bar-track" aria-hidden="true">
-                  <i style={{ width: `${(point.buffer / maxFutureValue) * 100}%` }} />
-                </div>
-                <small>{currencyFormatter.format(point.buffer)} {t.projectedBuffer}</small>
-              </div>
-            ))}
-          </div>
-        </article>
 
         <article className="window-panel category">
           <h2>{t.subscriptions}</h2>
@@ -401,7 +369,6 @@ function App() {
           ) : (
             <p className="empty">{t.emptyList}</p>
           )}
-          {renderMoneyComposer('subscriptions', setSubscriptions)}
         </article>
 
         <article className="window-panel category debt-card">
@@ -433,17 +400,6 @@ function App() {
           </p>
         </article>
 
-        <article className="window-panel category">
-          <h2>{t.todos}</h2>
-          <ul>{todos.map(renderTextLine)}</ul>
-          {renderTextComposer('todos', setTodos)}
-        </article>
-
-        <article className="window-panel category">
-          <h2>{t.notes}</h2>
-          <ul>{notes.map(renderTextLine)}</ul>
-          {renderTextComposer('notes', setNotes)}
-        </article>
 
         <article className="window-panel category calendar-card">
           <h2>{t.calendar}</h2>
@@ -454,6 +410,21 @@ function App() {
           </div>
           <ul>{calendar.map(renderTextLine)}</ul>
           {renderTextComposer('calendar', setCalendar, t.calendarPlaceholder)}
+        </article>
+
+        <article className="window-panel category future-card">
+          <h2>{t.optimisticFuture}</h2>
+          <div className="future-list">
+            {future.map((point) => (
+              <div className="future-row" key={point.month}>
+                <span>{point.month}. {t.month}</span>
+                <div className="bar-track" aria-hidden="true">
+                  <i style={{ width: `${(point.buffer / maxFutureValue) * 100}%` }} />
+                </div>
+                <small>{currencyFormatter.format(point.buffer)} {t.projectedBuffer} · {currencyFormatter.format(point.debt)} {t.projectedDebt}</small>
+              </div>
+            ))}
+          </div>
         </article>
       </section>
     </main>
